@@ -10,7 +10,7 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { User, Robot, CircleNotch, FileText, Copy, Check, DownloadSimple, ArrowsClockwise } from '@phosphor-icons/react';
+import { User, Robot, CircleNotch, FileText, Copy, Check, DownloadSimple } from '@phosphor-icons/react';
 import type { Message } from '../../lib/api/chats';
 import { parseCitations } from '../../lib/citations';
 import { CitationBadge } from './CitationBadge';
@@ -28,7 +28,6 @@ interface ChatMessagesProps {
   messages: Message[];
   sending: boolean;
   projectId: string;
-  onRetry?: (userMessageContent: string, aiMessageId: string) => void;
 }
 
 /**
@@ -185,20 +184,18 @@ const UserMessage: React.FC<{ content: string }> = ({ content }) => (
 interface AIMessageProps {
   content: string;
   projectId: string;
-  onRetry?: () => void;
 }
 
 /**
  * Message Action Buttons Component
- * Educational Note: Copy, Download, and Retry buttons for AI messages,
+ * Educational Note: Copy and Download buttons for AI messages,
  * similar to ChatGPT/Gemini UX pattern.
  */
 interface MessageActionsProps {
   content: string;
-  onRetry?: () => void;
 }
 
-const MessageActions: React.FC<MessageActionsProps> = ({ content, onRetry }) => {
+const MessageActions: React.FC<MessageActionsProps> = ({ content }) => {
   const [copied, setCopied] = useState(false);
 
   /**
@@ -273,30 +270,12 @@ const MessageActions: React.FC<MessageActionsProps> = ({ content, onRetry }) => 
             <p className="text-xs">Download</p>
           </TooltipContent>
         </Tooltip>
-
-        {onRetry && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onRetry}
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-              >
-                <ArrowsClockwise size={16} weight="bold" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p className="text-xs">Retry</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
       </div>
     </TooltipProvider>
   );
 };
 
-const AIMessage: React.FC<AIMessageProps> = ({ content, projectId, onRetry }) => {
+const AIMessage: React.FC<AIMessageProps> = ({ content, projectId }) => {
   // Parse citations from content to get citation numbers
   const { uniqueCitations, markerToNumber } = useMemo(
     () => parseCitations(content),
@@ -419,8 +398,8 @@ const AIMessage: React.FC<AIMessageProps> = ({ content, projectId, onRetry }) =>
             </>
           )}
 
-          {/* Action buttons - Copy, Download & Retry */}
-          <MessageActions content={content} onRetry={onRetry} />
+          {/* Action buttons - Copy & Download */}
+          <MessageActions content={content} />
         </div>
       </div>
     </div>
@@ -454,7 +433,6 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   messages,
   sending,
   projectId,
-  onRetry,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -511,41 +489,23 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
       className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden"
     >
       <div className="py-6 px-6 space-y-4 w-full">
-        {messages.map((msg, index) => {
-          // Find the preceding user message for retry functionality
-          const getPrecedingUserMessage = () => {
-            for (let i = index - 1; i >= 0; i--) {
-              if (messages[i].role === 'user') {
-                return messages[i].content;
-              }
-            }
-            return null;
-          };
-
-          return (
-            <div key={msg.id}>
-              {msg.role === 'user' ? (
-                <UserMessage content={msg.content} />
-              ) : (
-                <AIMessage
-                  content={msg.content}
-                  projectId={projectId}
-                  onRetry={onRetry ? () => {
-                    const userContent = getPrecedingUserMessage();
-                    if (userContent) {
-                      onRetry(userContent, msg.id);
-                    }
-                  } : undefined}
-                />
-              )}
-              {msg.error && (
-                <p className="text-xs text-destructive text-center mt-1">
-                  This message had an error
-                </p>
-              )}
-            </div>
-          );
-        })}
+        {messages.map((msg) => (
+          <div key={msg.id}>
+            {msg.role === 'user' ? (
+              <UserMessage content={msg.content} />
+            ) : (
+              <AIMessage
+                content={msg.content}
+                projectId={projectId}
+              />
+            )}
+            {msg.error && (
+              <p className="text-xs text-destructive text-center mt-1">
+                This message had an error
+              </p>
+            )}
+          </div>
+        ))}
 
         {/* Show loading indicator when sending */}
         {sending && <LoadingIndicator />}
